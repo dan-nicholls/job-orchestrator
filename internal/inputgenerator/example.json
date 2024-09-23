@@ -1,0 +1,36 @@
+{
+  "messageId": "c1d2f9ca-3e49-4325-bad5-f06163991885",
+  "timestamp": "2024-09-23T12:34:56Z",
+  "objects": [
+    {
+      "id": "0",
+      "label": "person",
+      "bbox": {
+        "top": 120,
+        "left": 75,
+        "width": 45,
+        "height": 180
+      }
+    },
+    {
+      "id": "1",
+      "label": "face",
+      "bbox": {
+        "top": 205,
+        "left": 896,
+        "width": 147,
+        "height": 59
+      }
+    },
+    {
+      "id": "2",
+      "label": "person",
+      "bbox": {
+        "top": 320,
+        "left": 150,
+        "width": 55,
+        "height": 190
+      }
+    }
+  ]
+}

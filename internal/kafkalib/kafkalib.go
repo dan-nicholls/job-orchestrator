@@ -8,8 +8,43 @@ import (
   "time"
 )
 
-func ProduceMessage(client *kafka.Writer, message []byte) {
-	err := client.WriteMessages(context.Background(),
+type JobReader struct {
+  InputTopic string
+  Reader *kafka.Reader
+}
+
+type JobWriter struct {
+  OuputTopic string
+  Writer *kafka.Writer
+}
+
+type Job struct {
+  Name string
+  Reader JobReader
+  Writer JobWriter
+  Handler func([]byte)
+}
+
+func (jw *JobWriter) InitKafkaWriter(hostAddress string, port int, topic string) {
+  jw.Writer = &kafka.Writer{
+    Addr:                   kafka.TCP(fmt.Sprintf("%s:%i", hostAddress, port)),
+		Topic:                  topic,
+		AllowAutoTopicCreation: true,
+  }
+  jw.OuputTopic = topic
+}
+
+func (jr *JobReader) InitKafkaReader(hostAddress string, port int, topic, groupId string) {
+  jr.Reader = kafka.NewReader(kafka.ReaderConfig{
+    Brokers: []string{fmt.Sprintf("%s:%d", hostAddress, port)},
+    Topic: topic,
+    GroupID: groupId,
+  })
+  jr.InputTopic = topic
+}
+
+func (jw *JobWriter) ProduceMessage(message []byte) {
+	err := jw.Writer.WriteMessages(context.Background(),
 		kafka.Message{
 			Key:   []byte("Key-A"),
 			Value: message,
@@ -21,15 +56,7 @@ func ProduceMessage(client *kafka.Writer, message []byte) {
 	}
 }
 
-func GetNewKafkaWriter(topic string) *kafka.Writer {
-	return &kafka.Writer{
-		Addr:                   kafka.TCP("broker:9092"),
-		Topic:                  topic,
-		AllowAutoTopicCreation: true,
-	}
-}
-
-func ProduceMessages(client *kafka.Writer, message []byte, interval time.Duration) {
+func (jw *JobWriter) ProduceMessagesPeriodically(message []byte, interval time.Duration) {
   ticker := time.NewTicker(interval)
 
   go func() {
@@ -37,8 +64,19 @@ func ProduceMessages(client *kafka.Writer, message []byte, interval time.Duratio
       select {
       case t := <- ticker.C:
           fmt.Println("Generating Message at ", t)
-          ProduceMessage(client, message)
+          jw.ProduceMessage(message)
       }
     } 
   }()
+}
+
+func (j *Job) ReadMessages() {
+  for {
+    msg, err := j.Reader.Reader.ReadMessage(context.Background())
+    if err != nil {
+      log.Fatal("Failed to read messages: ", err)
+    }
+
+    j.Handler(msg.Value)
+  }
 }

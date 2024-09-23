@@ -1,4 +1,4 @@
-package inputgenerator
+package main
 
 import (
 	"embed"

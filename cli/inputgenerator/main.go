@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/dannicholls/joborchestrator/internal/inputgenerator"
 	"github.com/dannicholls/joborchestrator/internal/kafkalib"
 	"fmt"
   "time"
@@ -12,9 +11,9 @@ import (
 
 
 func main() {
-	fmt.Println("Hello World!")
+	fmt.Println("Starting Kafka Message Generator")
 
-	exampleMessage, err := inputgenerator.GetInputDataExample()
+	exampleMessage, err := GetInputDataExample()
 	if err != nil {
 		fmt.Println("Error getting example data bytes: ", err)
 		return

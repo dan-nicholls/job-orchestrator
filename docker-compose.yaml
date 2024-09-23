@@ -49,9 +49,10 @@ services:
     working_dir: /app
     depends_on:
       - broker
-    command: go run main.go
+    command: go run ./cli/inputgenerator/
     environment:
       - KAFKA_BROKER=broker:9092
+
 networks:
   kafka-net:
     driver: bridge

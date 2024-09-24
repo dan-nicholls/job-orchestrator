@@ -53,6 +53,20 @@ services:
     environment:
       - KAFKA_BROKER=broker:9092
 
+  go-gen:
+    container_name: go-gen
+    image: golang:1.23.1-alpine
+    networks:
+      - kafka-net
+    volumes:
+      - .:/app # Mount the Go source files into the /app directory in the container
+    working_dir: /app
+    depends_on:
+      - broker
+    command: go run ./cli/inputgenerator/main.go ./cli/inputgenerator/inputgenerator.go
+    environment:
+      - KAFKA_BROKER=broker:9092
+
 networks:
   kafka-net:
     driver: bridge

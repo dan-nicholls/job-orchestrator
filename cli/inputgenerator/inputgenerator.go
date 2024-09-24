@@ -6,8 +6,11 @@ import (
 	"os"
 )
 
-//go:embed example.json
-var exampleJson embed.FS
+//go:embed example_raw.json
+var exampleRawJson embed.FS
+
+//go:embed example_message.json
+var exampleMessageJson embed.FS
 
 func readFileAsBytes(filePath string) ([]byte, error) {
 	file, err := os.Open(filePath)
@@ -24,8 +27,16 @@ func readFileAsBytes(filePath string) ([]byte, error) {
 	return fileBytes, nil
 }
 
-func GetInputDataExample() ([]byte, error) {
-	content, err := exampleJson.ReadFile("example.json")
+func GetRawJsonExample() ([]byte, error) {
+	content, err := exampleRawJson.ReadFile("example_raw.json")
+	if err != nil {
+		return nil, err
+	}
+	return content, nil
+}
+
+func GetMessageJsonExample() ([]byte, error) {
+	content, err := exampleMessageJson.ReadFile("test.json")
 	if err != nil {
 		return nil, err
 	}

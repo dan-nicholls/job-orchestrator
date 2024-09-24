@@ -13,16 +13,21 @@ import (
 func main() {
 	fmt.Println("Starting Kafka Message Generator")
 
-	exampleMessage, err := GetInputDataExample()
+	exampleMessage, err := GetMessageJsonExample()
 	if err != nil {
 		fmt.Println("Error getting example data bytes: ", err)
 		return
 	}
 
-  writer := kafkalib.GetNewKafkaWriter("testTopic")
-  defer writer.Close()
+  exampleJob := kafkalib.Job {
+    Name: "ExampleJobWriter",
+    Handler: nil,
+  }
 
-  go kafkalib.ProduceMessages(writer, exampleMessage, 1 * time.Second)
+  exampleJob.Writer.InitKafkaWriter("broker", 9092, "inputTopic")
+  defer exampleJob.Writer.Writer.Close()
+
+  go exampleJob.Writer.ProduceMessagesPeriodically(exampleMessage, 1 * time.Second)
 
   sigChan := make(chan os.Signal, 1)
   signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)

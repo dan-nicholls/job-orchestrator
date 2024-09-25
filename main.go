@@ -3,43 +3,54 @@ package main
 import (
 	"fmt"
 	"github.com/dannicholls/joborchestrator/internal/kafkalib"
+  "os"
+  "os/signal"
+  "syscall"
 )
 
-func ExampleJobHandler(message kafkalib.Message, jw *kafkalib.JobWriter) {
-	fmt.Printf("Processing message: %s\n", message)
-	jw.ProduceMessage([]byte("Output Message!"))
-}
-
-func LoggingHandler(message kafkalib.Message, jw *kafkalib.JobWriter) {
-	fmt.Printf("LOGGER - Processing message: %s\n", message.Type)
-}
-
 func main() {
+	fmt.Println("Welcome to Job-Orchestrator")
 
-	fmt.Println("Hello World!")
+  jm := kafkalib.NewJobManager("broker", 9092)
 
 	exampleJob := kafkalib.Job{
-		Name:       "ExampleJob1",
-		Handler:    ExampleJobHandler,
-		InputTypes: []string{"testType"},
+		Name: "ExampleJob1",
+		Handler: func(message kafkalib.Message, jw *kafkalib.KafkaOutput) {
+			fmt.Printf("Processing message: %s\n", message)
+      jw.ProduceMessage([]byte("testData"), "testOuputType")
+		},
+    Input: kafkalib.KafkaInput{
+      InputTypes: []string{"testType"},
+      Topic: "inputTopic",
+    },
+    Output: kafkalib.KafkaOutput{
+      OutputTypes: []string{"testOuputType"},
+      Topic: "inputTopic",
+    },
 	}
 
 	LoggingJob := kafkalib.Job{
-		Name:       "LoggingJob",
-		Handler:    LoggingHandler,
-		InputTypes: []string{"testType"},
+		Name: "LoggingJob",
+		Handler: func(message kafkalib.Message, jw *kafkalib.KafkaOutput) {
+			fmt.Printf("LOGGER - Processing message: %s\n", message.Type)
+		},
+    Input: kafkalib.KafkaInput{
+      InputTypes: []string{"testType"},
+      Topic: "inputTopic",
+    },
 	}
 
-	exampleJob.Reader.InitKafkaReader("broker", 9092, "inputTopic", LoggingJob.Name)
-	exampleJob.Writer.InitKafkaWriter("broker", 9092, "inputTopic")
-	defer exampleJob.Reader.Reader.Close()
-	defer exampleJob.Writer.Writer.Close()
+  jm.AddJob(exampleJob)
+  jm.AddJob(LoggingJob)
 
-	LoggingJob.Reader.InitKafkaReader("broker", 9092, "inputTopic", LoggingJob.Name)
-	defer LoggingJob.Reader.Reader.Close()
 
-	go exampleJob.ReadMessages()
-	go LoggingJob.ReadMessages()
+  go jm.StartJob("LoggingJob")
+  go jm.StartJob("ExampleJob")
+  defer jm.StopAllJobs()
 
-	select {}
+  // Enter loop until interupt signal
+  sigChan := make(chan os.Signal, 1)
+  signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+  sig := <-sigChan
+  fmt.Printf("Received signal: %s. Shutting down...\n", sig)
 }

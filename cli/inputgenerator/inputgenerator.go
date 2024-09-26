@@ -36,7 +36,7 @@ func GetRawJsonExample() ([]byte, error) {
 }
 
 func GetMessageJsonExample() ([]byte, error) {
-	content, err := exampleMessageJson.ReadFile("exmaple_messsage.json")
+	content, err := exampleMessageJson.ReadFile("example_message.json")
 	if err != nil {
 		return nil, err
 	}

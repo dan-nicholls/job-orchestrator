@@ -81,7 +81,7 @@ func (j *Job) InitialiseJob(address string, port int) {
 		j.Input.InitKafkaReader(address, port, j.Input.Topic, j.Name)
 	}
 	if len(j.Output.OutputTypes) > 0 {
-		j.Input.InitKafkaReader(address, port, j.Input.Topic, j.Name)
+		j.Output.InitKafkaWriter(address, port, j.Output.Topic)
 	}
 }
 
@@ -118,9 +118,9 @@ func (jm *JobManager) StopAllJobs() {
 	}
 }
 
-func (jw *KafkaOutput) InitWriter(hostAddress string, port int, topic string) {
+func (jw *KafkaOutput) InitKafkaWriter(hostAddress string, port int, topic string) {
 	jw.Writer = &kafka.Writer{
-		Addr:                   kafka.TCP("broker:9092"),
+    Addr:                   kafka.TCP(fmt.Sprintf("%s:%d", hostAddress, port)),
 		Topic:                  topic,
 		AllowAutoTopicCreation: true,
 	}
@@ -137,6 +137,9 @@ func (ki *KafkaInput) InitKafkaReader(hostAddress string, port int, topic, group
 }
 
 func (ko *KafkaOutput) ProduceMessage(data []byte, messageType string) error {
+	if ko.Writer == nil {
+		fmt.Errorf("Writer not initialised")
+	}
 	if !contains(ko.OutputTypes, messageType) {
 		fmt.Errorf("%s message type not in defined OutputTypes")
 	}

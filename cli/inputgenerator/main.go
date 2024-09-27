@@ -19,15 +19,22 @@ func main() {
 		return
 	}
 
+  jm := kafkalib.NewJobManager("broker", 9092)
+
   exampleJob := kafkalib.Job {
     Name: "ExampleJobWriter",
     Handler: nil,
+    Output: kafkalib.KafkaOutput{
+      OutputTypes: []string{"testOutput"},
+      Topic: "inputTopic",
+    },
   }
 
-  exampleJob.Writer.InitKafkaWriter("broker", 9092, "inputTopic")
-  defer exampleJob.Writer.Writer.Close()
+  jm.AddJob(exampleJob)
 
-  go exampleJob.Writer.ProduceMessagesPeriodically(exampleMessage, 1 * time.Second)
+  jm.Jobs[0].InitialiseJob("broker", 9092)
+  fmt.Printf("%+v",jm.Jobs[0])
+  jm.Jobs[0].Output.ProduceMessagesPeriodically(exampleMessage, "testOutput", 1 * time.Second)
 
   sigChan := make(chan os.Signal, 1)
   signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)

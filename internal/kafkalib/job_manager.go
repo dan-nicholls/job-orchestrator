@@ -2,6 +2,7 @@ package kafkalib
 
 import (
 	"fmt"
+	"log"
 	"sync"
 )
 
@@ -9,7 +10,7 @@ type JobTemplate struct {
 	Name        string
 	InputTypes  []string
 	OutputTypes []string
-	Handler     func(Message, *KafkaOutput)
+	Handler     func(Message, *KafkaOutput, *log.Logger)
 }
 
 type JobManager struct {

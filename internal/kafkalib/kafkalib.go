@@ -1,10 +1,13 @@
 package kafkalib
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"os"
 	"time"
 
 	"github.com/segmentio/kafka-go"
@@ -41,23 +44,31 @@ type Job struct {
 	Output   KafkaOutput
 	Template *JobTemplate
 	Status   Status
+	Logger   *log.Logger
+	Logs     *bytes.Buffer
 }
 
 func (j *Job) InitialiseJob(address string, port int) {
+	j.Logs = new(bytes.Buffer)
+	j.Logger = log.New(
+		io.MultiWriter(os.Stdout, j.Logs),
+		fmt.Sprintf("[%s] ", j.Name),
+		log.LstdFlags,
+	)
 	if len(j.Input.InputTypes) > 0 {
 		j.Input.InitKafkaReader(address, port, j.Input.Topic, j.Name)
 	} else {
-		fmt.Println("No Input Types available")
+		j.Logger.Println("No Input Types available")
 	}
 	if len(j.Output.OutputTypes) > 0 {
 		j.Output.InitKafkaWriter(address, port, j.Output.Topic)
 	} else {
-		fmt.Println("No Ouput Types available")
+		j.Logger.Println("No Ouput Types available")
 	}
 }
 
 func (j *Job) EndJob() {
-	fmt.Printf("Ending %s Job\n", j.Name)
+	j.Logger.Printf("Ending %s Job\n", j.Name)
 	if j.Input.Reader != nil {
 		j.Input.Reader.Close()
 	}
@@ -146,19 +157,19 @@ func (j *Job) Start() {
 	for {
 		msg, err := j.Input.Reader.ReadMessage(context.Background())
 		if err != nil {
-			log.Printf("Failed to read messages: ", err)
+			j.Logger.Printf("Failed to read messages: %v\n", err)
 			continue
 		}
 
 		var message Message
 		err = json.Unmarshal(msg.Value, &message)
 		if err != nil {
-			log.Printf("Failed to unmarshal message: %v", err)
+			j.Logger.Printf("Failed to unmarshal message: %v\n", err)
 			continue
 		}
 
 		if contains(j.Input.InputTypes, message.Type) {
-			j.Template.Handler(message, &j.Output)
+			j.Template.Handler(message, &j.Output, j.Logger)
 			// } else {
 			// 	fmt.Printf("Invalid Msg Type: %s\n", message.Type)
 		}

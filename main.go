@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,15 +18,15 @@ func main() {
 
 	exampleJobTemplate := kafkalib.JobTemplate{
 		Name: "ExampleJobTemplate",
-		Handler: func(message kafkalib.Message, jw *kafkalib.KafkaOutput) {
-			fmt.Printf("EXAMPLE - Processing message: %s\n", message)
+		Handler: func(message kafkalib.Message, jw *kafkalib.KafkaOutput, logger *log.Logger) {
+			logger.Printf("EXAMPLE - Processing message: %s\n", message)
 			data := map[string]string{
 				"testData": "data",
 			}
 
 			jsonData, err := json.Marshal(data)
 			if err != nil {
-				fmt.Printf("Error Marshalling data: %v\n", err)
+				logger.Printf("Error Marshalling data: %v\n", err)
 				return
 			}
 
@@ -37,8 +38,8 @@ func main() {
 
 	loggingJobTemplate := kafkalib.JobTemplate{
 		Name: "LoggingJobTemplate",
-		Handler: func(message kafkalib.Message, jw *kafkalib.KafkaOutput) {
-			fmt.Printf("LOGGER - Processing message: %s\n", message.Type)
+		Handler: func(message kafkalib.Message, jw *kafkalib.KafkaOutput, logger *log.Logger) {
+			logger.Printf("LOGGER - Processing message: %s\n", message.Type)
 		},
 		InputTypes: []string{"testOuputType"},
 	}

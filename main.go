@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/dannicholls/joborchestrator/internal/kafkalib"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/dannicholls/joborchestrator/internal/kafkalib"
 )
 
 func main() {
@@ -13,35 +15,47 @@ func main() {
 
 	jm := kafkalib.NewJobManager("broker", 9092)
 
-	exampleJob := kafkalib.Job{
-		Name: "ExampleJob1",
+	exampleJobTemplate := kafkalib.JobTemplate{
+		Name: "ExampleJobTemplate",
 		Handler: func(message kafkalib.Message, jw *kafkalib.KafkaOutput) {
-			fmt.Printf("Processing message: %s\n", message)
-			jw.ProduceMessage([]byte("testData"), "testOuputType")
+			fmt.Printf("EXAMPLE - Processing message: %s\n", message)
+			data := map[string]string{
+				"testData": "data",
+			}
+
+			jsonData, err := json.Marshal(data)
+			if err != nil {
+				fmt.Printf("Error Marshalling data: %v\n", err)
+				return
+			}
+
+			jw.ProduceMessage(jsonData, "testOuputType")
 		},
-		Input: kafkalib.KafkaInput{
-			InputTypes: []string{"testType"},
-			Topic:      "inputTopic",
-		},
-		Output: kafkalib.KafkaOutput{
-			OutputTypes: []string{"testOuputType"},
-			Topic:       "inputTopic",
-		},
+		InputTypes:  []string{"testType"},
+		OutputTypes: []string{"testOuputType"},
 	}
 
-	LoggingJob := kafkalib.Job{
-		Name: "LoggingJob",
+	loggingJobTemplate := kafkalib.JobTemplate{
+		Name: "LoggingJobTemplate",
 		Handler: func(message kafkalib.Message, jw *kafkalib.KafkaOutput) {
 			fmt.Printf("LOGGER - Processing message: %s\n", message.Type)
 		},
-		Input: kafkalib.KafkaInput{
-			InputTypes: []string{"testType"},
-			Topic:      "inputTopic",
-		},
+		InputTypes: []string{"testOuputType"},
 	}
 
-	jm.AddJob(exampleJob)
-	jm.AddJob(LoggingJob)
+	jm.AddTemplate(exampleJobTemplate)
+	jm.AddTemplate(loggingJobTemplate)
+	fmt.Printf("%+v\n", jm)
+
+	_, err := jm.CreateJob("ExampleJob", "ExampleJobTemplate", "inputTopic", "inputTopic")
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+	_, err = jm.CreateJob("LoggingJob", "LoggingJobTemplate", "inputTopic", "")
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+	fmt.Printf("%+v\n", jm)
 
 	go jm.StartJob("LoggingJob")
 	go jm.StartJob("ExampleJob")

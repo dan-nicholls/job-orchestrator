@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/segmentio/kafka-go"
 	"log"
-	"sync"
 	"time"
+
+	"github.com/segmentio/kafka-go"
 )
 
 type Message struct {
@@ -27,61 +27,32 @@ type KafkaOutput struct {
 	Writer      *kafka.Writer
 }
 
+type Status string
+
+const (
+	Errored Status = "errored"
+	Running Status = "running"
+	Stopped Status = "stopped"
+)
+
 type Job struct {
-	Name    string
-	Input   KafkaInput
-	Output  KafkaOutput
-	Handler func(Message, *KafkaOutput)
-}
-
-type JobManager struct {
-	Jobs    []Job
-	address string
-	port    int
-	mu      sync.Mutex
-}
-
-func NewJobManager(address string, port int) *JobManager {
-	return &JobManager{
-		Jobs:    make([]Job, 0),
-		address: address,
-		port:    port,
-	}
-}
-
-// This parameter should be a generic
-func (jm *JobManager) AddJob(job Job) error {
-	jm.mu.Lock()
-	defer jm.mu.Unlock()
-
-	for _, j := range jm.Jobs {
-		if job.Name == j.Name {
-			return fmt.Errorf("job with name %s is already exists", j.Name)
-		}
-	}
-	jm.Jobs = append(jm.Jobs, job)
-	return nil
-}
-
-func (jm *JobManager) RemoveJob(jobName string) error {
-	jm.mu.Lock()
-	defer jm.mu.Unlock()
-
-	for i, j := range jm.Jobs {
-		if j.Name == jobName {
-			jm.Jobs = append(jm.Jobs[:i], jm.Jobs[i+1:]...)
-			return nil
-		}
-	}
-	return fmt.Errorf("Job name %s not found in registered jobs", jobName)
+	Name     string
+	Input    KafkaInput
+	Output   KafkaOutput
+	Template *JobTemplate
+	Status   Status
 }
 
 func (j *Job) InitialiseJob(address string, port int) {
 	if len(j.Input.InputTypes) > 0 {
 		j.Input.InitKafkaReader(address, port, j.Input.Topic, j.Name)
+	} else {
+		fmt.Println("No Input Types available")
 	}
 	if len(j.Output.OutputTypes) > 0 {
 		j.Output.InitKafkaWriter(address, port, j.Output.Topic)
+	} else {
+		fmt.Println("No Ouput Types available")
 	}
 }
 
@@ -96,31 +67,9 @@ func (j *Job) EndJob() {
 	}
 }
 
-func (jm *JobManager) StartJob(jobName string) error {
-	jm.mu.Lock()
-	defer jm.mu.Unlock()
-	for _, j := range jm.Jobs {
-		// Initialise Job
-		if j.Name == jobName {
-			j.InitialiseJob(jm.address, jm.port)
-			fmt.Printf("Starting job: %s\n", j.Name)
-			//DO STUFF HERE
-			go j.Start()
-			return nil
-		}
-	}
-	return fmt.Errorf("Job name %s cannot be started. Not found in registered jobs")
-}
-
-func (jm *JobManager) StopAllJobs() {
-	for _, j := range jm.Jobs {
-		j.EndJob()
-	}
-}
-
 func (jw *KafkaOutput) InitKafkaWriter(hostAddress string, port int, topic string) {
 	jw.Writer = &kafka.Writer{
-    Addr:                   kafka.TCP(fmt.Sprintf("%s:%d", hostAddress, port)),
+		Addr:                   kafka.TCP(fmt.Sprintf("%s:%d", hostAddress, port)),
 		Topic:                  topic,
 		AllowAutoTopicCreation: true,
 	}
@@ -160,21 +109,24 @@ func (ko *KafkaOutput) ProduceMessage(data []byte, messageType string) error {
 			Value: messageBytes,
 		},
 	)
-
 	if err != nil {
 		log.Fatal("failed to write messages:", err)
 	}
 	return nil
 }
 
-func (ko *KafkaOutput) ProduceMessagesPeriodically(message []byte, messageType string, interval time.Duration) {
+func (ko *KafkaOutput) ProduceMessagesPeriodically(
+	message []byte,
+	messageType string,
+	interval time.Duration,
+) {
 	ticker := time.NewTicker(interval)
 
 	go func() {
 		for {
 			select {
 			case t := <-ticker.C:
-				fmt.Println("Generating Message at ", t)
+				fmt.Printf("Generating %s Message at %s\n", messageType, t)
 				ko.ProduceMessage(message, messageType)
 			}
 		}
@@ -194,7 +146,8 @@ func (j *Job) Start() {
 	for {
 		msg, err := j.Input.Reader.ReadMessage(context.Background())
 		if err != nil {
-			log.Fatal("Failed to read messages: ", err)
+			log.Printf("Failed to read messages: ", err)
+			continue
 		}
 
 		var message Message
@@ -205,9 +158,9 @@ func (j *Job) Start() {
 		}
 
 		if contains(j.Input.InputTypes, message.Type) {
-			j.Handler(message, &j.Output)
-		} else {
-			fmt.Printf("Invalid Msg Type: %s\n", message.Type)
+			j.Template.Handler(message, &j.Output)
+			// } else {
+			// 	fmt.Printf("Invalid Msg Type: %s\n", message.Type)
 		}
 	}
 }
